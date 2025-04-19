@@ -1,0 +1,237 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local aimbotRange = 1000
+local fovRadius = 150
+local espEnabled = false
+local aimbotEnabled = false
+local holdingRightClick = false
+local highlights = {}
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AimbotUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 250)
+mainFrame.Position = UDim2.new(0, 20, 0.5, -125)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Text = "Aimbot Battlegrounds"
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+
+local closeButton = Instance.new("TextButton", mainFrame)
+closeButton.Text = "❌"
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -60, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(70, 0, 0)
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Font = Enum.Font.SourceSans
+closeButton.TextSize = 18
+
+local minimizeButton = Instance.new("TextButton", mainFrame)
+minimizeButton.Text = "-"
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -30, 0, 0)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+minimizeButton.TextColor3 = Color3.new(1, 1, 1)
+minimizeButton.Font = Enum.Font.SourceSans
+minimizeButton.TextSize = 18
+
+local miniToggle = Instance.new("TextButton", screenGui)
+miniToggle.Text = "ESP&AIMBOT"
+miniToggle.Size = UDim2.new(0, 150, 0, 30)
+miniToggle.Position = UDim2.new(0, 20, 0.5, -15)
+miniToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+miniToggle.TextColor3 = Color3.new(1, 1, 1)
+miniToggle.Font = Enum.Font.SourceSans
+miniToggle.TextSize = 14
+miniToggle.Visible = false
+miniToggle.Draggable = true
+miniToggle.Active = true
+
+closeButton.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+	miniToggle.Visible = true
+end)
+
+miniToggle.MouseButton1Click:Connect(function()
+	mainFrame.Visible = true
+	miniToggle.Visible = false
+end)
+
+local function makeButton(text, y)
+	local btn = Instance.new("TextButton")
+	btn.Text = text
+	btn.Size = UDim2.new(1, -20, 0, 30)
+	btn.Position = UDim2.new(0, 10, 0, y)
+	btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 14
+	btn.Parent = mainFrame
+	return btn
+end
+
+local espButton = makeButton("Toggle ESP: OFF", 40)
+local aimbotButton = makeButton("Toggle Aimbot: OFF", 75)
+
+local function makeLabelAndBox(labelText, yPos, default)
+	local label = Instance.new("TextLabel", mainFrame)
+	label.Text = labelText
+	label.Position = UDim2.new(0, 10, 0, yPos)
+	label.Size = UDim2.new(1, -20, 0, 20)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.SourceSans
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
+
+	local box = Instance.new("TextBox", mainFrame)
+	box.Text = tostring(default)
+	box.Position = UDim2.new(0, 10, 0, yPos + 20)
+	box.Size = UDim2.new(1, -20, 0, 25)
+	box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	box.TextColor3 = Color3.new(1, 1, 1)
+	box.Font = Enum.Font.SourceSans
+	box.TextSize = 14
+
+	return box
+end
+
+local rangeBox = makeLabelAndBox("Aimbot Range (studs):", 115, aimbotRange)
+local fovBox = makeLabelAndBox("FOV Radius (pixels):", 165, fovRadius)
+
+local fovCircle = Instance.new("Frame", screenGui)
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+fovCircle.BackgroundTransparency = 0.7
+fovCircle.BorderSizePixel = 0
+fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+
+local circleCorner = Instance.new("UICorner", fovCircle)
+circleCorner.CornerRadius = UDim.new(1, 0)
+
+RunService.RenderStepped:Connect(function()
+	local mouse = UserInputService:GetMouseLocation()
+	fovCircle.Position = UDim2.new(0, mouse.X, 0, mouse.Y - 36)
+end)
+
+local function addESP(player)
+	if player == LocalPlayer or highlights[player] then return end
+	local char = player.Character
+	if not char then return end
+
+	local hl = Instance.new("Highlight")
+	hl.Name = "ESPHighlight"
+	hl.Adornee = char
+	hl.FillColor = Color3.fromRGB(255, 0, 0)
+	hl.FillTransparency = 0.7
+	hl.OutlineColor = Color3.new(0, 0, 0)
+	hl.OutlineTransparency = 0
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Parent = char
+	highlights[player] = hl
+end
+
+local function removeESP()
+	for _, hl in pairs(highlights) do
+		if hl and hl.Parent then hl:Destroy() end
+	end
+	highlights = {}
+end
+
+espButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	espButton.Text = "Toggle ESP: " .. (espEnabled and "ON" or "OFF")
+	if espEnabled then
+		for _, p in ipairs(Players:GetPlayers()) do addESP(p) end
+		Players.PlayerAdded:Connect(addESP)
+	else
+		removeESP()
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		holdingRightClick = true
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		holdingRightClick = false
+	end
+end)
+
+local function getClosestTarget()
+	local mouse = UserInputService:GetMouseLocation()
+	local camPos = Camera.CFrame.Position
+	local closest, minDist = nil, math.huge
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local head = player.Character:FindFirstChild("Head")
+			if head then
+				local distStuds = (head.Position - camPos).Magnitude
+				if distStuds <= aimbotRange then
+					local screenPos, visible = Camera:WorldToViewportPoint(head.Position)
+					if visible then
+						local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
+						if dist < fovRadius and dist < minDist then
+							closest, minDist = head, dist
+						end
+					end
+				end
+			end
+		end
+	end
+	return closest
+end
+
+RunService.RenderStepped:Connect(function()
+	if aimbotEnabled and holdingRightClick then
+		local target = getClosestTarget()
+		if target then
+			local camPos = Camera.CFrame.Position
+			local dir = (target.Position - camPos).Unit
+			Camera.CFrame = CFrame.new(camPos, camPos + dir)
+		end
+	end
+end)
+
+aimbotButton.MouseButton1Click:Connect(function()
+	aimbotEnabled = not aimbotEnabled
+	aimbotButton.Text = "Toggle Aimbot: " .. (aimbotEnabled and "ON" or "OFF")
+end)
+
+rangeBox.FocusLost:Connect(function()
+	local val = tonumber(rangeBox.Text)
+	if val then
+		aimbotRange = val
+	end
+end)
+
+fovBox.FocusLost:Connect(function()
+	local val = tonumber(fovBox.Text)
+	if val then
+		fovRadius = val
+		fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+	end
+end)
