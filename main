@@ -1,237 +1,278 @@
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local aimbotRange = 1000
-local fovRadius = 150
-local espEnabled = false
+-- State
 local aimbotEnabled = false
-local holdingRightClick = false
+local fovVisible = true
+local fovRadius = 150
+local maxDistance = 1000
+local useDistance = true
+local espBody = false
+local espBones = false
+local espNames = false
 local highlights = {}
+local nameTags = {}
+local boneLines = {}
 
-local screenGui = Instance.new("ScreenGui")
+-- UI Setup
+local screenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 screenGui.Name = "AimbotUI"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 250, 0, 250)
-mainFrame.Position = UDim2.new(0, 20, 0.5, -125)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Visible = true
-mainFrame.Parent = screenGui
-
-local title = Instance.new("TextLabel", mainFrame)
-title.Text = "Aimbot Battlegrounds"
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 16
-
-local closeButton = Instance.new("TextButton", mainFrame)
-closeButton.Text = "❌"
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -60, 0, 0)
-closeButton.BackgroundColor3 = Color3.fromRGB(70, 0, 0)
-closeButton.TextColor3 = Color3.new(1, 1, 1)
-closeButton.Font = Enum.Font.SourceSans
-closeButton.TextSize = 18
-
-local minimizeButton = Instance.new("TextButton", mainFrame)
-minimizeButton.Text = "-"
-minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-minimizeButton.Position = UDim2.new(1, -30, 0, 0)
-minimizeButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-minimizeButton.TextColor3 = Color3.new(1, 1, 1)
-minimizeButton.Font = Enum.Font.SourceSans
-minimizeButton.TextSize = 18
-
-local miniToggle = Instance.new("TextButton", screenGui)
-miniToggle.Text = "ESP&AIMBOT"
-miniToggle.Size = UDim2.new(0, 150, 0, 30)
-miniToggle.Position = UDim2.new(0, 20, 0.5, -15)
-miniToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-miniToggle.TextColor3 = Color3.new(1, 1, 1)
-miniToggle.Font = Enum.Font.SourceSans
-miniToggle.TextSize = 14
-miniToggle.Visible = false
-miniToggle.Draggable = true
-miniToggle.Active = true
-
-closeButton.MouseButton1Click:Connect(function()
-	screenGui:Destroy()
-end)
-
-minimizeButton.MouseButton1Click:Connect(function()
-	mainFrame.Visible = false
-	miniToggle.Visible = true
-end)
-
-miniToggle.MouseButton1Click:Connect(function()
-	mainFrame.Visible = true
-	miniToggle.Visible = false
-end)
-
-local function makeButton(text, y)
-	local btn = Instance.new("TextButton")
-	btn.Text = text
-	btn.Size = UDim2.new(1, -20, 0, 30)
-	btn.Position = UDim2.new(0, 10, 0, y)
-	btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.Font = Enum.Font.SourceSans
-	btn.TextSize = 14
-	btn.Parent = mainFrame
-	return btn
-end
-
-local espButton = makeButton("Toggle ESP: OFF", 40)
-local aimbotButton = makeButton("Toggle Aimbot: OFF", 75)
-
-local function makeLabelAndBox(labelText, yPos, default)
-	local label = Instance.new("TextLabel", mainFrame)
+local function createCheckbox(parent, labelText, yPos)
+	local label = Instance.new("TextLabel", parent)
 	label.Text = labelText
 	label.Position = UDim2.new(0, 10, 0, yPos)
-	label.Size = UDim2.new(1, -20, 0, 20)
+	label.Size = UDim2.new(0, 150, 0, 20)
 	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextColor3 = Color3.new(1,1,1)
 	label.Font = Enum.Font.SourceSans
 	label.TextSize = 14
 	label.TextXAlignment = Enum.TextXAlignment.Left
 
-	local box = Instance.new("TextBox", mainFrame)
-	box.Text = tostring(default)
-	box.Position = UDim2.new(0, 10, 0, yPos + 20)
-	box.Size = UDim2.new(1, -20, 0, 25)
-	box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-	box.TextColor3 = Color3.new(1, 1, 1)
+	local box = Instance.new("TextButton", parent)
+	box.Position = UDim2.new(0, 160, 0, yPos)
+	box.Size = UDim2.new(0, 20, 0, 20)
+	box.Text = "OFF"
+	box.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	box.TextColor3 = Color3.new(1,1,1)
 	box.Font = Enum.Font.SourceSans
-	box.TextSize = 14
+	box.TextSize = 12
 
 	return box
 end
 
-local rangeBox = makeLabelAndBox("Aimbot Range (studs):", 115, aimbotRange)
-local fovBox = makeLabelAndBox("FOV Radius (pixels):", 165, fovRadius)
+local function createInput(parent, labelText, yPos, default)
+	local label = Instance.new("TextLabel", parent)
+	label.Text = labelText
+	label.Position = UDim2.new(0, 10, 0, yPos)
+	label.Size = UDim2.new(0, 150, 0, 20)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1,1,1)
+	label.Font = Enum.Font.SourceSans
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
 
-local fovCircle = Instance.new("Frame", screenGui)
-fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-fovCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-fovCircle.BackgroundTransparency = 0.7
-fovCircle.BorderSizePixel = 0
-fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+	local box = Instance.new("TextBox", parent)
+	box.Position = UDim2.new(0, 160, 0, yPos)
+	box.Size = UDim2.new(0, 50, 0, 20)
+	box.Text = tostring(default)
+	box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	box.TextColor3 = Color3.new(1,1,1)
+	box.Font = Enum.Font.SourceSans
+	box.TextSize = 12
 
-local circleCorner = Instance.new("UICorner", fovCircle)
-circleCorner.CornerRadius = UDim.new(1, 0)
+	return box
+end
+
+local main = Instance.new("Frame", screenGui)
+main.Size = UDim2.new(0, 230, 0, 330)
+main.Position = UDim2.new(0, 10, 0.5, -165)
+main.BackgroundColor3 = Color3.fromRGB(30,30,30)
+main.Active = true
+main.Draggable = true
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.Text = "ESP & Aimbot"
+title.BackgroundColor3 = Color3.fromRGB(40,40,40)
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+
+-- ESP checkboxes
+local bodyBox = createCheckbox(main, "Body ESP", 30)
+local bonesBox = createCheckbox(main, "Bones ESP", 55)
+local namesBox = createCheckbox(main, "Names ESP", 80)
+
+-- Aimbot checkboxes and inputs
+local aimbotBox = createCheckbox(main, "Aimbot", 110)
+local fovToggleBox = createCheckbox(main, "FOV Toggle", 135)
+local fovRadiusBox = createInput(main, "FOV Radius", 160, fovRadius)
+local distToggleBox = createCheckbox(main, "Distance Check", 190)
+local distBox = createInput(main, "Max Distance", 215, maxDistance)
+
+-- FOV circle
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = Color3.fromRGB(255,255,255)
+fovCircle.Thickness = 1
+fovCircle.NumSides = 60
+fovCircle.Radius = fovRadius
+fovCircle.Filled = false
+fovCircle.Visible = true
 
 RunService.RenderStepped:Connect(function()
 	local mouse = UserInputService:GetMouseLocation()
-	fovCircle.Position = UDim2.new(0, mouse.X, 0, mouse.Y - 36)
+	fovCircle.Position = Vector2.new(mouse.X, mouse.Y - 36)
+	fovCircle.Radius = fovRadius
+	fovCircle.Visible = aimbotEnabled and fovVisible
 end)
 
-local function addESP(player)
-	if player == LocalPlayer or highlights[player] then return end
-	local char = player.Character
-	if not char then return end
-
-	local hl = Instance.new("Highlight")
-	hl.Name = "ESPHighlight"
-	hl.Adornee = char
-	hl.FillColor = Color3.fromRGB(255, 0, 0)
-	hl.FillTransparency = 0.7
-	hl.OutlineColor = Color3.new(0, 0, 0)
-	hl.OutlineTransparency = 0
-	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	hl.Parent = char
-	highlights[player] = hl
+-- Toggle logic
+local function toggle(button, stateVar)
+	_G[stateVar] = not _G[stateVar]
+	button.Text = _G[stateVar] and "ON" or "OFF"
 end
 
-local function removeESP()
-	for _, hl in pairs(highlights) do
-		if hl and hl.Parent then hl:Destroy() end
-	end
-	highlights = {}
-end
-
-espButton.MouseButton1Click:Connect(function()
-	espEnabled = not espEnabled
-	espButton.Text = "Toggle ESP: " .. (espEnabled and "ON" or "OFF")
-	if espEnabled then
-		for _, p in ipairs(Players:GetPlayers()) do addESP(p) end
-		Players.PlayerAdded:Connect(addESP)
-	else
-		removeESP()
-	end
+bodyBox.MouseButton1Click:Connect(function()
+	espBody = not espBody
+	bodyBox.Text = espBody and "ON" or "OFF"
 end)
 
-UserInputService.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-		holdingRightClick = true
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-		holdingRightClick = false
-	end
+bonesBox.MouseButton1Click:Connect(function()
+	espBones = not espBones
+	bonesBox.Text = espBones and "ON" or "OFF"
 end)
 
-local function getClosestTarget()
-	local mouse = UserInputService:GetMouseLocation()
-	local camPos = Camera.CFrame.Position
-	local closest, minDist = nil, math.huge
+namesBox.MouseButton1Click:Connect(function()
+	espNames = not espNames
+	namesBox.Text = espNames and "ON" or "OFF"
+end)
 
+aimbotBox.MouseButton1Click:Connect(function()
+	aimbotEnabled = not aimbotEnabled
+	aimbotBox.Text = aimbotEnabled and "ON" or "OFF"
+end)
+
+fovToggleBox.MouseButton1Click:Connect(function()
+	fovVisible = not fovVisible
+	fovToggleBox.Text = fovVisible and "ON" or "OFF"
+end)
+
+distToggleBox.MouseButton1Click:Connect(function()
+	useDistance = not useDistance
+	distToggleBox.Text = useDistance and "ON" or "OFF"
+end)
+
+fovRadiusBox.FocusLost:Connect(function()
+	local val = tonumber(fovRadiusBox.Text)
+	if val then fovRadius = val end
+end)
+
+distBox.FocusLost:Connect(function()
+	local val = tonumber(distBox.Text)
+	if val then maxDistance = val end
+end)
+
+-- ESP system
+local function updateESP()
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local head = player.Character:FindFirstChild("Head")
-			if head then
-				local distStuds = (head.Position - camPos).Magnitude
-				if distStuds <= aimbotRange then
-					local screenPos, visible = Camera:WorldToViewportPoint(head.Position)
-					if visible then
-						local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
-						if dist < fovRadius and dist < minDist then
-							closest, minDist = head, dist
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+			local char = player.Character
+
+			if espBody and not highlights[player] then
+				local hl = Instance.new("Highlight", char)
+				hl.Name = "BodyESP"
+				hl.FillColor = Color3.fromRGB(255,0,0)
+				hl.FillTransparency = 0.7
+				hl.OutlineColor = Color3.new(0,0,0)
+				highlights[player] = hl
+			elseif not espBody and highlights[player] then
+				highlights[player]:Destroy()
+				highlights[player] = nil
+			end
+
+			if espNames and not nameTags[player] then
+				local tag = Instance.new("BillboardGui", char.Head)
+				tag.Size = UDim2.new(0,100,0,20)
+				tag.AlwaysOnTop = true
+				tag.Name = "NameESP"
+				local text = Instance.new("TextLabel", tag)
+				text.Size = UDim2.new(1,0,1,0)
+				text.Text = player.Name
+				text.BackgroundTransparency = 1
+				text.TextColor3 = Color3.new(1,1,1)
+				text.Font = Enum.Font.SourceSans
+				text.TextSize = 14
+				nameTags[player] = tag
+			elseif not espNames and nameTags[player] then
+				nameTags[player]:Destroy()
+				nameTags[player] = nil
+			end
+
+			if espBones then
+				if not boneLines[player] then
+					boneLines[player] = {}
+				end
+
+				local parts = {"Head", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "Torso", "HumanoidRootPart"}
+				for _, partName in ipairs(parts) do
+					local part = char:FindFirstChild(partName)
+					if part then
+						if not boneLines[player][partName] then
+							local line = Drawing.new("Line")
+							line.Color = Color3.fromRGB(255, 255, 255)
+							line.Thickness = 1.5
+							boneLines[player][partName] = line
+						end
+
+						local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+						if onScreen then
+							local headPos = Camera:WorldToViewportPoint(char.Head.Position)
+							boneLines[player][partName].From = Vector2.new(headPos.X, headPos.Y)
+							boneLines[player][partName].To = Vector2.new(pos.X, pos.Y)
+							boneLines[player][partName].Visible = true
+						else
+							boneLines[player][partName].Visible = false
 						end
 					end
+				end
+			else
+				if boneLines[player] then
+					for _, line in pairs(boneLines[player]) do
+						line:Remove()
+					end
+					boneLines[player] = nil
 				end
 			end
 		end
 	end
+end
+
+RunService.RenderStepped:Connect(updateESP)
+
+-- Aimbot
+local function getClosest()
+	local mouse = UserInputService:GetMouseLocation()
+	local closest = nil
+	local shortest = math.huge
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+			local head = player.Character.Head
+			local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+			local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(mouse.X, mouse.Y - 36)).Magnitude
+			if onScreen and dist < fovRadius then
+				local realDist = (head.Position - Camera.CFrame.Position).Magnitude
+				if (not useDistance or realDist <= maxDistance) and dist < shortest then
+					shortest = dist
+					closest = head
+				end
+			end
+		end
+	end
+
 	return closest
 end
 
-RunService.RenderStepped:Connect(function()
-	if aimbotEnabled and holdingRightClick then
-		local target = getClosestTarget()
-		if target then
-			local camPos = Camera.CFrame.Position
-			local dir = (target.Position - camPos).Unit
-			Camera.CFrame = CFrame.new(camPos, camPos + dir)
-		end
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 and aimbotEnabled then
+		RunService:BindToRenderStep("Aim", Enum.RenderPriority.Camera.Value + 1, function()
+			local target = getClosest()
+			if target then
+				local dir = (target.Position - Camera.CFrame.Position).Unit
+				Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + dir)
+			end
+		end)
 	end
 end)
 
-aimbotButton.MouseButton1Click:Connect(function()
-	aimbotEnabled = not aimbotEnabled
-	aimbotButton.Text = "Toggle Aimbot: " .. (aimbotEnabled and "ON" or "OFF")
-end)
-
-rangeBox.FocusLost:Connect(function()
-	local val = tonumber(rangeBox.Text)
-	if val then
-		aimbotRange = val
-	end
-end)
-
-fovBox.FocusLost:Connect(function()
-	local val = tonumber(fovBox.Text)
-	if val then
-		fovRadius = val
-		fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		RunService:UnbindFromRenderStep("Aim")
 	end
 end)
