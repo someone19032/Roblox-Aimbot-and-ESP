@@ -1,278 +1,222 @@
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+local LP = Players.LocalPlayer
 
--- State
-local aimbotEnabled = false
-local fovVisible = true
-local fovRadius = 150
-local maxDistance = 1000
-local useDistance = true
-local espBody = false
-local espBones = false
-local espNames = false
-local highlights = {}
-local nameTags = {}
-local boneLines = {}
+local toggles = {
+	BodyESP = false,
+	BonesESP = false,
+	NameESP = false,
+	Aimbot = false,
+	FOVToggle = true,
+	UseDistance = true
+}
+local values = {
+	FOVRadius = 200,
+	MaxDistance = 1000
+}
+local highlights, nameTags, boneLines = {}, {}, {}
 
 -- UI Setup
-local screenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-screenGui.Name = "AimbotUI"
-screenGui.ResetOnSpawn = false
+local gui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
+gui.Name = "AimESP_UI"
+gui.ResetOnSpawn = false
 
-local function createCheckbox(parent, labelText, yPos)
-	local label = Instance.new("TextLabel", parent)
-	label.Text = labelText
-	label.Position = UDim2.new(0, 10, 0, yPos)
-	label.Size = UDim2.new(0, 150, 0, 20)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1,1,1)
-	label.Font = Enum.Font.SourceSans
-	label.TextSize = 14
-	label.TextXAlignment = Enum.TextXAlignment.Left
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 250, 0, 330)
+frame.Position = UDim2.new(0.5, -125, 0.5, -165)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
 
-	local box = Instance.new("TextButton", parent)
-	box.Position = UDim2.new(0, 160, 0, yPos)
-	box.Size = UDim2.new(0, 20, 0, 20)
-	box.Text = "OFF"
-	box.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-	box.TextColor3 = Color3.new(1,1,1)
-	box.Font = Enum.Font.SourceSans
-	box.TextSize = 12
+local frameCorner = Instance.new("UICorner", frame)
+frameCorner.CornerRadius = UDim.new(0, 8)
 
-	return box
-end
+-- Header Bar
+local header = Instance.new("Frame", frame)
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+header.BorderSizePixel = 0
 
-local function createInput(parent, labelText, yPos, default)
-	local label = Instance.new("TextLabel", parent)
-	label.Text = labelText
-	label.Position = UDim2.new(0, 10, 0, yPos)
-	label.Size = UDim2.new(0, 150, 0, 20)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.new(1,1,1)
-	label.Font = Enum.Font.SourceSans
-	label.TextSize = 14
-	label.TextXAlignment = Enum.TextXAlignment.Left
+local headerCorner = Instance.new("UICorner", header)
+headerCorner.CornerRadius = UDim.new(0, 8)
 
-	local box = Instance.new("TextBox", parent)
-	box.Position = UDim2.new(0, 160, 0, yPos)
-	box.Size = UDim2.new(0, 50, 0, 20)
-	box.Text = tostring(default)
-	box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	box.TextColor3 = Color3.new(1,1,1)
-	box.Font = Enum.Font.SourceSans
-	box.TextSize = 12
-
-	return box
-end
-
-local main = Instance.new("Frame", screenGui)
-main.Size = UDim2.new(0, 230, 0, 330)
-main.Position = UDim2.new(0, 10, 0.5, -165)
-main.BackgroundColor3 = Color3.fromRGB(30,30,30)
-main.Active = true
-main.Draggable = true
-
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 25)
-title.Text = "ESP & Aimbot"
-title.BackgroundColor3 = Color3.fromRGB(40,40,40)
-title.TextColor3 = Color3.new(1,1,1)
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, -60, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "ESP & AIMBOT"
 title.Font = Enum.Font.SourceSansBold
+title.TextColor3 = Color3.new(1, 1, 1)
 title.TextSize = 16
+title.TextXAlignment = Enum.TextXAlignment.Left
 
--- ESP checkboxes
-local bodyBox = createCheckbox(main, "Body ESP", 30)
-local bonesBox = createCheckbox(main, "Bones ESP", 55)
-local namesBox = createCheckbox(main, "Names ESP", 80)
+local minimize = Instance.new("TextButton", header)
+minimize.Size = UDim2.new(0, 20, 0, 20)
+minimize.Position = UDim2.new(1, -50, 0.5, -10)
+minimize.Text = "-"
+minimize.Font = Enum.Font.SourceSansBold
+minimize.TextColor3 = Color3.new(1, 1, 1)
+minimize.TextSize = 16
+minimize.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 
--- Aimbot checkboxes and inputs
-local aimbotBox = createCheckbox(main, "Aimbot", 110)
-local fovToggleBox = createCheckbox(main, "FOV Toggle", 135)
-local fovRadiusBox = createInput(main, "FOV Radius", 160, fovRadius)
-local distToggleBox = createCheckbox(main, "Distance Check", 190)
-local distBox = createInput(main, "Max Distance", 215, maxDistance)
+local minCorner = Instance.new("UICorner", minimize)
+minCorner.CornerRadius = UDim.new(0, 4)
 
--- FOV circle
-local fovCircle = Drawing.new("Circle")
-fovCircle.Color = Color3.fromRGB(255,255,255)
-fovCircle.Thickness = 1
-fovCircle.NumSides = 60
-fovCircle.Radius = fovRadius
-fovCircle.Filled = false
-fovCircle.Visible = true
+local close = Instance.new("TextButton", header)
+close.Size = UDim2.new(0, 20, 0, 20)
+close.Position = UDim2.new(1, -25, 0.5, -10)
+close.Text = "X"
+close.Font = Enum.Font.SourceSansBold
+close.TextColor3 = Color3.new(1, 1, 1)
+close.TextSize = 16
+close.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 
-RunService.RenderStepped:Connect(function()
-	local mouse = UserInputService:GetMouseLocation()
-	fovCircle.Position = Vector2.new(mouse.X, mouse.Y - 36)
-	fovCircle.Radius = fovRadius
-	fovCircle.Visible = aimbotEnabled and fovVisible
-end)
+local closeCorner = Instance.new("UICorner", close)
+closeCorner.CornerRadius = UDim.new(0, 4)
 
--- Toggle logic
-local function toggle(button, stateVar)
-	_G[stateVar] = not _G[stateVar]
-	button.Text = _G[stateVar] and "ON" or "OFF"
+-- Content container
+local content = Instance.new("Frame", frame)
+content.Size = UDim2.new(1, 0, 1, -30)
+content.Position = UDim2.new(0, 0, 0, 30)
+content.BackgroundTransparency = 1
+
+local function createTitle(text, y)
+	local label = Instance.new("TextLabel", content)
+	label.Size = UDim2.new(1, -20, 0, 20)
+	label.Position = UDim2.new(0, 10, 0, y)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.SourceSansBold
+	label.TextSize = 18
+	label.Text = text
+	label.TextXAlignment = Enum.TextXAlignment.Center
 end
 
-bodyBox.MouseButton1Click:Connect(function()
-	espBody = not espBody
-	bodyBox.Text = espBody and "ON" or "OFF"
-end)
+local function createToggle(text, y, key)
+	local btn = Instance.new("TextButton", content)
+	btn.Size = UDim2.new(0, 120, 0, 24)
+	btn.Position = UDim2.new(0.5, -60, 0, y)
+	btn.Text = text .. ": OFF"
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 14
 
-bonesBox.MouseButton1Click:Connect(function()
-	espBones = not espBones
-	bonesBox.Text = espBones and "ON" or "OFF"
-end)
+	local corner = Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 6)
 
-namesBox.MouseButton1Click:Connect(function()
-	espNames = not espNames
-	namesBox.Text = espNames and "ON" or "OFF"
-end)
+	btn.MouseButton1Click:Connect(function()
+		toggles[key] = not toggles[key]
+		btn.Text = text .. ": " .. (toggles[key] and "ON" or "OFF")
+	end)
+end
 
-aimbotBox.MouseButton1Click:Connect(function()
-	aimbotEnabled = not aimbotEnabled
-	aimbotBox.Text = aimbotEnabled and "ON" or "OFF"
-end)
+local function createInput(text, y, key)
+	local label = Instance.new("TextLabel", content)
+	label.Size = UDim2.new(0, 120, 0, 20)
+	label.Position = UDim2.new(0.5, -85, 0, y)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.SourceSans
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
 
-fovToggleBox.MouseButton1Click:Connect(function()
-	fovVisible = not fovVisible
-	fovToggleBox.Text = fovVisible and "ON" or "OFF"
-end)
+	local box = Instance.new("TextBox", content)
+	box.Size = UDim2.new(0, 50, 0, 20)
+	box.Position = UDim2.new(0.5, 45, 0, y)
+	box.Text = tostring(values[key])
+	box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	box.TextColor3 = Color3.new(1, 1, 1)
+	box.Font = Enum.Font.SourceSans
+	box.TextSize = 14
 
-distToggleBox.MouseButton1Click:Connect(function()
-	useDistance = not useDistance
-	distToggleBox.Text = useDistance and "ON" or "OFF"
-end)
+	local boxCorner = Instance.new("UICorner", box)
+	boxCorner.CornerRadius = UDim.new(0, 6)
 
-fovRadiusBox.FocusLost:Connect(function()
-	local val = tonumber(fovRadiusBox.Text)
-	if val then fovRadius = val end
-end)
+	box.FocusLost:Connect(function()
+		local val = tonumber(box.Text)
+		if val then values[key] = val end
+	end)
+end
 
-distBox.FocusLost:Connect(function()
-	local val = tonumber(distBox.Text)
-	if val then maxDistance = val end
-end)
+-- Layout
+local y = 10
+createTitle("--- ESP ---", y); y += 30
+createToggle("Body ESP", y, "BodyESP"); y += 30
+createToggle("Bones ESP", y, "BonesESP"); y += 30
+createToggle("Name ESP", y, "NameESP"); y += 40
+createTitle("--- Aimbot ---", y); y += 30
+createToggle("Aimbot", y, "Aimbot"); y += 30
+createToggle("FOV Toggle", y, "FOVToggle"); y += 30
+createInput("FOV Radius", y, "FOVRadius"); y += 30
+createToggle("Distance Toggle", y, "UseDistance"); y += 30
+createInput("Max Distance", y, "MaxDistance")
 
--- ESP system
-local function updateESP()
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-			local char = player.Character
-
-			if espBody and not highlights[player] then
-				local hl = Instance.new("Highlight", char)
-				hl.Name = "BodyESP"
-				hl.FillColor = Color3.fromRGB(255,0,0)
-				hl.FillTransparency = 0.7
-				hl.OutlineColor = Color3.new(0,0,0)
-				highlights[player] = hl
-			elseif not espBody and highlights[player] then
-				highlights[player]:Destroy()
-				highlights[player] = nil
-			end
-
-			if espNames and not nameTags[player] then
-				local tag = Instance.new("BillboardGui", char.Head)
-				tag.Size = UDim2.new(0,100,0,20)
-				tag.AlwaysOnTop = true
-				tag.Name = "NameESP"
-				local text = Instance.new("TextLabel", tag)
-				text.Size = UDim2.new(1,0,1,0)
-				text.Text = player.Name
-				text.BackgroundTransparency = 1
-				text.TextColor3 = Color3.new(1,1,1)
-				text.Font = Enum.Font.SourceSans
-				text.TextSize = 14
-				nameTags[player] = tag
-			elseif not espNames and nameTags[player] then
-				nameTags[player]:Destroy()
-				nameTags[player] = nil
-			end
-
-			if espBones then
-				if not boneLines[player] then
-					boneLines[player] = {}
-				end
-
-				local parts = {"Head", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "Torso", "HumanoidRootPart"}
-				for _, partName in ipairs(parts) do
-					local part = char:FindFirstChild(partName)
-					if part then
-						if not boneLines[player][partName] then
-							local line = Drawing.new("Line")
-							line.Color = Color3.fromRGB(255, 255, 255)
-							line.Thickness = 1.5
-							boneLines[player][partName] = line
-						end
-
-						local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-						if onScreen then
-							local headPos = Camera:WorldToViewportPoint(char.Head.Position)
-							boneLines[player][partName].From = Vector2.new(headPos.X, headPos.Y)
-							boneLines[player][partName].To = Vector2.new(pos.X, pos.Y)
-							boneLines[player][partName].Visible = true
-						else
-							boneLines[player][partName].Visible = false
-						end
-					end
-				end
-			else
-				if boneLines[player] then
-					for _, line in pairs(boneLines[player]) do
-						line:Remove()
-					end
-					boneLines[player] = nil
-				end
-			end
-		end
+-- Minimize behavior: collapse to a single small button
+local minimized = false
+minimize.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	if minimized then
+		-- shrink to a small button
+		frame.Size = UDim2.new(0, 150, 0, 50)
+		frame.Position = UDim2.new(0.5, -75, 0.5, -25)
+		content.Visible = false
+		header.Size = UDim2.new(1, 0, 1, 0)
+		minimize.Text = "+"
+	else
+		-- restore full UI
+		frame.Size = UDim2.new(0, 250, 0, 330)
+		frame.Position = UDim2.new(0.5, -125, 0.5, -165)
+		content.Visible = true
+		header.Size = UDim2.new(1, 0, 0, 30)
+		minimize.Text = "-"
 	end
-end
+end)
 
-RunService.RenderStepped:Connect(updateESP)
+close.MouseButton1Click:Connect(function()
+	gui:Destroy()
+end)
 
--- Aimbot
-local function getClosest()
-	local mouse = UserInputService:GetMouseLocation()
-	local closest = nil
-	local shortest = math.huge
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-			local head = player.Character.Head
-			local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-			local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(mouse.X, mouse.Y - 36)).Magnitude
-			if onScreen and dist < fovRadius then
-				local realDist = (head.Position - Camera.CFrame.Position).Magnitude
-				if (not useDistance or realDist <= maxDistance) and dist < shortest then
-					shortest = dist
-					closest = head
-				end
-			end
-		end
-	end
-
-	return closest
-end
-
-UserInputService.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 and aimbotEnabled then
-		RunService:BindToRenderStep("Aim", Enum.RenderPriority.Camera.Value + 1, function()
-			local target = getClosest()
-			if target then
-				local dir = (target.Position - Camera.CFrame.Position).Unit
-				Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + dir)
+-- Draggable header
+local dragging, dragInput, dragStart, startPos = false
+header.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = i.Position
+		startPos = frame.Position
+		i.Changed:Connect(function()
+			if i.UserInputState == Enum.UserInputState.End then
+				dragging = false
 			end
 		end)
 	end
 end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-		RunService:UnbindFromRenderStep("Aim")
+header.InputChanged:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = i
 	end
+end)
+UIS.InputChanged:Connect(function(i)
+	if i == dragInput and dragging then
+		local delta = i.Position - dragStart
+		frame.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- FOV Circle
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = Color3.new(1,1,1)
+fovCircle.Thickness = 1
+fovCircle.NumSides = 90
+fovCircle.Filled = false
+RunService.RenderStepped:Connect(function()
+	local m = UIS:GetMouseLocation()
+	fovCircle.Position = Vector2.new(m.X, m.Y - 36)
+	fovCircle.Radius = values.FOVRadius
+	fovCircle.Visible = toggles.Aimbot and toggles.FOVToggle
 end)
